@@ -1,0 +1,65 @@
+# This is an example test file.
+# Commnents are ignored by the unit test program,
+# and always start with a '#' to denote a comment.
+
+# Blank lines are also ignored.
+
+# Some important notes:
+# Unit tests assume you have not modified the memory_block_t
+# struct, so you will need to modify these tests to account
+# for the size of your modified memory blocks if you choose
+# to modify them.
+# Regardless of whether you modify your memory block or not,
+# these tests also assume a singly-linked list, so if you
+# choose to make yours doubly-linked, these tests will not
+# necessarily show that your code is bulletproof.
+# Also, lines may not exceed 160 characters,
+# to avoid a buffer overflow.
+
+
+
+# The first line of a unit test will always be two numbers:
+# the first number is the total size of the heap,
+# and the second is the total number of (free or allocated)
+# memory blocks on the heap. The size must be less than
+# 16*PAGESIZE.
+
+1152 8
+
+# Following the numbers, the initial heap setup is done.
+# 'f' and 'a' determine whether the block is free or allocated,
+# the second number is the block's ID (simply used for testing,
+# your program needs no sense of a block's id), and the third
+# number is the number of bytes the block takes up (not 
+# including the size of the block itself).
+# Additionally, we assume block ID's will be in
+# ascending order.
+
+f 1 128
+a 2 128
+f 3 128
+a 4 128
+f 5 128
+f 6 128
+a 7 128
+f 8 128
+
+# This '@' character is used as a separator to denote the end
+# of heap setup. From here on, there will be a list of finds,
+# extends, splits, and coalesces to test on the heap setup.
+@
+
+# Now, there's a list of functions to test:
+# F <num> will test finding a block of (at least) size num in the free list.
+# E <num> will test extending the heap by (at least) num bytes.
+# S <id> <num> will test attempting to split block id into a block of num bytes.
+# C <id> will test attempting to coalesces block id with nearby blocks.
+
+F 128
+E 128
+S 1 64
+C 5
+
+# Finally, there needs to be another separator at the end.
+# Everything past it gets ignored completely.
+@
