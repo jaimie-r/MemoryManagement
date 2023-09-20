@@ -97,11 +97,20 @@ memory_block_t *find(size_t size) {
     int blockSize = get_size(free_head);
     memory_block_t *cur = free_head;
     memory_block_t *res = NULL;
+    bool minimize = false;
     while(cur) {
         int curSize = get_size(cur);
-        if(curSize >= size && curSize < blockSize) {
-            res = cur;
-            blockSize = curSize;
+        if(curSize >= size) {
+            if(!minimize) {
+                res = cur;
+                blockSize = curSize;
+                minimize = true;
+            } else {
+                if(curSize < blockSize) {
+                    res = cur;
+                    blockSize = curSize;
+                }
+            }
         }
         cur = cur->next;
     }
@@ -140,7 +149,7 @@ memory_block_t *split(memory_block_t *block, size_t size) { // get a size sized 
         res->block_size_alloc = size;
         allocate(res);
         memory_block_t *free;
-        free = block + fullBlockSize + ALIGNMENT;
+        free = (memory_block_t *)(block + fullBlockSize + ALIGNMENT);
         free->block_size_alloc = fullBlockSize - size;
         ufree(free);
         return res;
@@ -216,7 +225,7 @@ void *umalloc(size_t size) {
     //* STUDENT TODO
     // call find to get free block
     // 
-    void *bptr = find(size);
+    memory_block_t *bptr = find(size);
     if(bptr) { // found a block
         allocate(bptr);
         if(bptr == free_head) { // allocated block is free_head
