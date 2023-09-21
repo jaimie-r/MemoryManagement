@@ -40,7 +40,7 @@ void deallocate(memory_block_t *block) {
 }
 
 /*
- * get_size - gets the size of the block.
+ * get_size - gets the (payload) size of the block.
  */
 size_t get_size(memory_block_t *block) {
     assert(block != NULL);

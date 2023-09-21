@@ -31,24 +31,27 @@ int check_heap() {
     memory_block_t *cur = free_head;
     while (cur) {
         printf("block address: %p\n", cur);
-        printf("block_size_alloc: %d\n", (int)cur->block_size_alloc);
+        printf("block_size_alloc: %d\n", (int)(cur->block_size_alloc));
         printf("next: %p\n", cur->next);
         printf("\n");
         if (is_allocated(cur)) { // marked free
+            printf("allocated\n");
             return -1;
         }
         if(cur->next) {
-            if(&cur > &cur->next) { // address-sorted
-                return -2;
+            if(cur > cur->next) { // address-sorted
+                printf("sorted wrong\n");
+                return -1;
             }
-            // if memory address + size >= next memory address return -1
-            if( (cur + get_size(cur) ) >= cur->next ) { // checking for overlap
-                return -3;
+            // if memory address + size > next memory address return -1
+            if( ((uintptr_t)cur + get_size(cur) + ALIGNMENT) > (uintptr_t)cur->next ) { // checking for overlap
+                printf("overlap\n");
+                return -1;
             }
         }
-        unsigned int curNum = (uintptr_t) cur;
-        if( curNum % ALIGNMENT != 0) { // 16-byte aligned
-            return -4;
+        if( ((uintptr_t)cur % ALIGNMENT) != 0) { // 16-byte aligned
+            printf("unaligned\n");
+            return -1;
         }
         cur = cur->next;
     }
