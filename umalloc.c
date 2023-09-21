@@ -143,17 +143,17 @@ memory_block_t *extend(size_t size) {
  */
 memory_block_t *split(memory_block_t *block, size_t size) { // get a size sized block from block
     //* STUDENT TODO
-    if(block->block_size_alloc - size >= 24) { // split
-        int fullBlockSize = block->block_size_alloc;
-        memory_block_t *res = block;
-        res->block_size_alloc = size;
-        allocate(res);
-        memory_block_t *free;
-        free = (memory_block_t *)(block + fullBlockSize + ALIGNMENT);
-        free->block_size_alloc = fullBlockSize - size;
-        ufree(free);
-        return res;
+    while(size % ALIGNMENT != 0) {
+        size++;
     }
+    memory_block_t *free = (memory_block_t *)((char *)block + size + ALIGNMENT);
+    free->block_size_alloc = block->block_size_alloc - size;
+    if(block == free_head) {
+        free_head = free;
+    }
+    ufree(free);
+    block->block_size_alloc = size;
+    allocate(block);
     return block; // don't split
 }
 
@@ -224,26 +224,30 @@ int uinit() {
 void *umalloc(size_t size) {
     //* STUDENT TODO
     // call find to get free block
-    // 
     memory_block_t *bptr = find(size);
-    if(bptr) { // found a block
-        allocate(bptr);
-        if(bptr == free_head) { // allocated block is free_head
-            free_head = free_head->next;
-            return split(bptr, size);
-        }
-        memory_block_t *prev = free_head;
-        while(prev->next) { // allocated block is from middle of list
-            if(prev->next == bptr) {
-                prev->next = prev->next->next;
-                return split(bptr, size);
-            }
-        }
-        prev->next = NULL; // allocated block is last free block
+    if(!bptr) { // didn't find a block big enough
+        bptr = extend(5 * PAGESIZE); // extend adds to free list and coalesces
+    }
+    if(bptr->block_size_alloc - size >= (ALIGNMENT * 3)) { // split
         return split(bptr, size);
     }
-    bptr = extend(5 * PAGESIZE);
-    return split(bptr, size);
+    // allocating entire block so fix the free list
+    memory_block_t *prev = free_head;
+    if(prev == bptr) { // allocated free_head
+        free_head = free_head->next;
+    } else {
+        bool done = false;
+        while(prev->next) {
+            if(prev->next == bptr && !done) { // found bptr
+                prev->next = prev->next->next; // bridging free list
+                done = true;
+            }
+            prev = prev->next;
+        }
+    }
+    // after free list is fixed, allocate the block
+    allocate(bptr);
+    return bptr;
 }
 
 /*
