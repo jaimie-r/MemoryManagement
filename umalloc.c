@@ -127,7 +127,7 @@ memory_block_t *extend(size_t size) {
     if(res < free_head) {
         res->next = free_head;
         free_head = res;
-        return coalesce(res);
+        return res; //coalesce
     } else {
         memory_block_t *cur = free_head;
         while(cur->next) {
@@ -135,7 +135,7 @@ memory_block_t *extend(size_t size) {
         }
         cur->next = res;
     }
-    return coalesce(res);
+    return res; // coalesce
 }
 
 /*
@@ -143,17 +143,38 @@ memory_block_t *extend(size_t size) {
  */
 memory_block_t *split(memory_block_t *block, size_t size) { // get a size sized block from block
     //* STUDENT TODO
+    int fullBlockSize = block->block_size_alloc;
     while(size % ALIGNMENT != 0) {
         size++;
     }
+    block->block_size_alloc = size;
+    memory_block_t *prev = free_head;
+    if(block == prev) {
+        if(prev->next) {
+            prev->next = prev->next->next;
+        } else {
+            prev->next = NULL;
+        }
+    } else {
+        bool done = false;
+        while(prev->next && !done) {
+            if(prev->next == block) {
+                prev->next = prev->next->next;
+                done = true;
+            }
+            if (!done) {
+                prev = prev->next;
+            }
+        }
+    }
+    allocate(block);
     memory_block_t *free = (memory_block_t *)((char *)block + size + ALIGNMENT);
-    free->block_size_alloc = block->block_size_alloc - size;
+    free->block_size_alloc = fullBlockSize - size;
+    deallocate(free);
     if(block == free_head) {
         free_head = free;
     }
     ufree(free);
-    block->block_size_alloc = size;
-    allocate(block);
     return block; // don't split
 }
 
@@ -164,7 +185,7 @@ memory_block_t *split(memory_block_t *block, size_t size) { // get a size sized 
 memory_block_t *coalesce(memory_block_t *block) {
     //* STUDENT TODO
     memory_block_t *prev = free_head;
-    memory_block_t *blockEnd = block + block->block_size_alloc + ALIGNMENT;
+    memory_block_t *blockEnd = (memory_block_t *) (block + block->block_size_alloc + ALIGNMENT);
     if(block == prev) { // coalescing at beginning
         if(prev->next) {
             if(!is_allocated(prev->next) && blockEnd == prev->next) { // block and next block are adjacent
@@ -256,31 +277,27 @@ void *umalloc(size_t size) {
  */
 void ufree(void *ptr) {
     //* STUDENT TODO
-    // mask and shift bits to get allocated or free indicator bit to check it's allocated 
-    // ^noo use helper methods
-    // loop through linked list and get previous and next block
-    // check if either is free
-    // coalesce (can I call coalesce in here?)
-    memory_block_t *bptr = get_block(ptr);
+    memory_block_t *bptr = (memory_block_t *) (ptr);
     deallocate(bptr);
     memory_block_t *prev = free_head;
     if(prev > bptr) { // new free_head
         bptr->next = free_head;
         free_head = bptr;
-        coalesce(bptr);
+        // coalesce(bptr);
     } else {
         while(prev->next) {
             if(prev->next > bptr) { // insert free block after prev
                 bptr->next = prev->next;
                 prev->next = bptr;
-                coalesce(bptr);
+                // coalesce(bptr);
                 return;
             }
             prev = prev->next;
         }
-        prev->next = bptr;
-        bptr->next = NULL;
-        coalesce(bptr);
+        if(bptr > prev) { // add to the end of the list
+            prev->next = bptr;
+        }
+        // coalesce(bptr);
     }
 
 }
