@@ -185,10 +185,11 @@ memory_block_t *split(memory_block_t *block, size_t size) { // get a size sized 
 memory_block_t *coalesce(memory_block_t *block) {
     //* STUDENT TODO
     memory_block_t *prev = free_head;
-    memory_block_t *blockEnd = (memory_block_t *) (block + block->block_size_alloc + ALIGNMENT);
+    memory_block_t *res;
+    memory_block_t *blockEnd = (memory_block_t *)((uintptr_t)block + block->block_size_alloc + ALIGNMENT);
     if(block == prev) { // coalescing at beginning
         if(prev->next) {
-            if(!is_allocated(prev->next) && blockEnd == prev->next) { // block and next block are adjacent
+            if(blockEnd == prev->next) { // first and second are adjacent
                 block->block_size_alloc += prev->next->block_size_alloc + ALIGNMENT;
                 block->next = prev->next->next;
             }
@@ -196,23 +197,18 @@ memory_block_t *coalesce(memory_block_t *block) {
     } else {
         while(prev->next) {
             if(prev->next == block) { // found the free block
-                memory_block_t *prevEnd = prev + prev->block_size_alloc + ALIGNMENT;
-                if(!is_allocated(prev) && prevEnd == block) { // prev is back to back with block
-                    if(block->next && blockEnd == block->next && !is_allocated(block->next)) { // block is back to back with next so coalesce both sides
-                        prev->block_size_alloc += block->block_size_alloc + block->next->block_size_alloc + (2 * ALIGNMENT);
-                        prev->next = block->next;
-                        return prev;
-                    }  
-                    // only coalesce with prev
-                    prev->block_size_alloc += block->block_size_alloc + ALIGNMENT;
-                    prev->next = block->next;
-                    return prev;
-                }
-                if(block->next && !is_allocated(block->next) && blockEnd == block->next) { // only coalesce with next block
+                memory_block_t *prevEnd = (memory_block_t *)(uintptr_t)prev + prev->block_size_alloc + ALIGNMENT;
+                if(block->next && blockEnd == block->next) { // coalesce with next block
                     block->block_size_alloc += block->next->block_size_alloc + ALIGNMENT;
                     block->next = block->next->next;
-                    return block;
+                    res = block;
                 }
+                if(prevEnd == block) { // coalesce with prev
+                    prev->block_size_alloc += block->block_size_alloc + ALIGNMENT;
+                    prev->next = block->next;
+                    res = prev;
+                }
+                return res;
             }
             prev = prev->next;
         }
@@ -283,13 +279,13 @@ void ufree(void *ptr) {
     if(prev > bptr) { // new free_head
         bptr->next = free_head;
         free_head = bptr;
-        // coalesce(bptr);
+        coalesce(bptr);
     } else {
         while(prev->next) {
             if(prev->next > bptr) { // insert free block after prev
                 bptr->next = prev->next;
                 prev->next = bptr;
-                // coalesce(bptr);
+                coalesce(bptr);
                 return;
             }
             prev = prev->next;
@@ -297,7 +293,7 @@ void ufree(void *ptr) {
         if(bptr > prev) { // add to the end of the list
             prev->next = bptr;
         }
-        // coalesce(bptr);
+        coalesce(bptr);
     }
 
 }
