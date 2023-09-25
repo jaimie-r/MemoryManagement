@@ -124,7 +124,9 @@ memory_block_t *extend(size_t size) {
     //* STUDENT TODO
     memory_block_t *res = csbrk(size + ALIGNMENT);
     res->block_size_alloc = size;
-    if(res < free_head) {
+    if(free_head == NULL) {
+        free_head = res;
+    } else if(res < free_head) {
         res->next = free_head;
         free_head = res;
         return res; //coalesce
@@ -144,22 +146,30 @@ memory_block_t *extend(size_t size) {
 memory_block_t *split(memory_block_t *block, size_t size) { // get a size sized block from block
     //* STUDENT TODO
     int fullBlockSize = block->block_size_alloc;
+    // align size
     while(size % ALIGNMENT != 0) {
         size++;
     }
+    // block becomes allocated block to return
     block->block_size_alloc = size;
+    allocate(block);
+    // free points to split off part
+    memory_block_t *free = (memory_block_t *)((char *)block + size + ALIGNMENT);
+    free->block_size_alloc = fullBlockSize - size;
+    deallocate(free);
+    // fix free list
     memory_block_t *prev = free_head;
-    if(block == prev) {
+    if(block == prev) { // first block was split
         if(prev->next) {
-            prev->next = prev->next->next;
-        } else {
-            prev->next = NULL;
-        }
+            free->next = prev->next;
+        } 
+        free_head = free;
     } else {
         bool done = false;
         while(prev->next && !done) {
             if(prev->next == block) {
-                prev->next = prev->next->next;
+                free->next = prev->next->next;
+                prev->next = free;
                 done = true;
             }
             if (!done) {
@@ -167,15 +177,7 @@ memory_block_t *split(memory_block_t *block, size_t size) { // get a size sized 
             }
         }
     }
-    allocate(block);
-    memory_block_t *free = (memory_block_t *)((char *)block + size + ALIGNMENT);
-    free->block_size_alloc = fullBlockSize - size;
-    deallocate(free);
-    if(block == free_head) {
-        free_head = free;
-    }
-    ufree(free);
-    return block; // don't split
+    return block;
 }
 
 /*
@@ -192,18 +194,15 @@ memory_block_t *coalesce(memory_block_t *block) {
             if(blockEnd == (uintptr_t)prev->next) { // first and second are adjacent
                 block->block_size_alloc += prev->next->block_size_alloc + ALIGNMENT;
                 block->next = prev->next->next;
-                
             }
         }
     } else {
         while(prev->next) {
             if(prev->next == block) { // found the free block
-                res = NULL;
                 memory_block_t *prevEnd = (memory_block_t *)(uintptr_t)prev + prev->block_size_alloc + ALIGNMENT;
                 if(block->next && blockEnd == (uintptr_t)block->next) { // coalesce with next block
                     block->block_size_alloc += block->next->block_size_alloc + ALIGNMENT;
                     block->next = block->next->next;
-                    res = block;
                 }
                 if(prevEnd == block) { // coalesce with prev
                     prev->block_size_alloc += block->block_size_alloc + ALIGNMENT;
@@ -243,6 +242,7 @@ int uinit() {
 void *umalloc(size_t size) {
     //* STUDENT TODO
     // call find to get free block
+    // check_heap();
     memory_block_t *bptr = find(size);
     if(!bptr) { // didn't find a block big enough
         bptr = extend(5 * PAGESIZE); // extend adds to free list and coalesces
