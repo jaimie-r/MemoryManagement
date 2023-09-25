@@ -185,20 +185,22 @@ memory_block_t *split(memory_block_t *block, size_t size) { // get a size sized 
 memory_block_t *coalesce(memory_block_t *block) {
     //* STUDENT TODO
     memory_block_t *prev = free_head;
-    memory_block_t *res;
-    memory_block_t *blockEnd = (memory_block_t *)((uintptr_t)block + block->block_size_alloc + ALIGNMENT);
+    memory_block_t *res = block;
+    int blockEnd = ((uintptr_t)block + block->block_size_alloc + ALIGNMENT);
     if(block == prev) { // coalescing at beginning
         if(prev->next) {
-            if(blockEnd == prev->next) { // first and second are adjacent
+            if(blockEnd == (uintptr_t)prev->next) { // first and second are adjacent
                 block->block_size_alloc += prev->next->block_size_alloc + ALIGNMENT;
                 block->next = prev->next->next;
+                
             }
         }
     } else {
         while(prev->next) {
             if(prev->next == block) { // found the free block
+                res = NULL;
                 memory_block_t *prevEnd = (memory_block_t *)(uintptr_t)prev + prev->block_size_alloc + ALIGNMENT;
-                if(block->next && blockEnd == block->next) { // coalesce with next block
+                if(block->next && blockEnd == (uintptr_t)block->next) { // coalesce with next block
                     block->block_size_alloc += block->next->block_size_alloc + ALIGNMENT;
                     block->next = block->next->next;
                     res = block;
@@ -213,7 +215,7 @@ memory_block_t *coalesce(memory_block_t *block) {
             prev = prev->next;
         }
     }
-    return block;
+    return res;
 }
 
 
