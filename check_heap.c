@@ -44,7 +44,7 @@ int check_heap() {
                 return -1;
             }
             // if memory address + size > next memory address return -1
-            if( ((uintptr_t)cur + get_size(cur) + ALIGNMENT) > (uintptr_t)cur->next ) { // checking for overlap
+            if( ((uintptr_t)cur + cur->block_size_alloc + ALIGNMENT) > (uintptr_t)cur->next ) { // checking for overlap
                 printf("overlap\n");
                 return -1;
             }

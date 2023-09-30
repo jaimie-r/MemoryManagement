@@ -94,13 +94,16 @@ memory_block_t *get_block(void *payload) {
  */
 memory_block_t *find(size_t size) {
     //* STUDENT TODO
+    if(!free_head) {
+        return NULL;
+    }
     int blockSize = get_size(free_head);
     memory_block_t *cur = free_head;
     memory_block_t *res = NULL;
     bool minimize = false;
     while(cur) {
         int curSize = get_size(cur);
-        if(curSize >= size) {
+        if(curSize >= size) { // fits
             if(!minimize) {
                 res = cur;
                 blockSize = curSize;
@@ -129,7 +132,7 @@ memory_block_t *extend(size_t size) {
     } else if(res < free_head) {
         res->next = free_head;
         free_head = res;
-        return res; //coalesce
+        return coalesce(res); //coalesce
     } else {
         memory_block_t *cur = free_head;
         while(cur->next) {
@@ -137,7 +140,7 @@ memory_block_t *extend(size_t size) {
         }
         cur->next = res;
     }
-    return res; // coalesce
+    return coalesce(res); // coalesce
 }
 
 /*
@@ -146,16 +149,12 @@ memory_block_t *extend(size_t size) {
 memory_block_t *split(memory_block_t *block, size_t size) { // get a size sized block from block
     //* STUDENT TODO
     int fullBlockSize = block->block_size_alloc;
-    // align size
-    while(size % ALIGNMENT != 0) {
-        size++;
-    }
     // block becomes allocated block to return
     block->block_size_alloc = size;
     allocate(block);
     // free points to split off part
     memory_block_t *free = (memory_block_t *)((char *)block + size + ALIGNMENT);
-    free->block_size_alloc = fullBlockSize - size;
+    free->block_size_alloc = fullBlockSize - size - ALIGNMENT;
     deallocate(free);
     // fix free list
     memory_block_t *prev = free_head;
@@ -193,13 +192,13 @@ memory_block_t *coalesce(memory_block_t *block) {
         if(prev->next) {
             if(blockEnd == (uintptr_t)prev->next) { // first and second are adjacent
                 block->block_size_alloc += prev->next->block_size_alloc + ALIGNMENT;
-                block->next = prev->next->next;
+                block->next = block->next->next;
             }
         }
     } else {
         while(prev->next) {
             if(prev->next == block) { // found the free block
-                memory_block_t *prevEnd = (memory_block_t *)(uintptr_t)prev + prev->block_size_alloc + ALIGNMENT;
+                memory_block_t *prevEnd = (memory_block_t *)((uintptr_t)prev + prev->block_size_alloc + ALIGNMENT);
                 if(block->next && blockEnd == (uintptr_t)block->next) { // coalesce with next block
                     block->block_size_alloc += block->next->block_size_alloc + ALIGNMENT;
                     block->next = block->next->next;
@@ -243,12 +242,21 @@ void *umalloc(size_t size) {
     //* STUDENT TODO
     // call find to get free block
     // check_heap();
+    while(size % ALIGNMENT != 0) {
+        size++;
+    }
     memory_block_t *bptr = find(size);
     if(!bptr) { // didn't find a block big enough
-        bptr = extend(5 * PAGESIZE); // extend adds to free list and coalesces
+        int extendSize = PAGESIZE;
+        while(extendSize < size) {
+            extendSize += PAGESIZE;
+        }
+        bptr = extend(extendSize);
     }
-    if(bptr->block_size_alloc - size >= (ALIGNMENT * 3)) { // split
-        return split(bptr, size);
+    if(bptr->block_size_alloc > size) {
+        if((bptr->block_size_alloc - size) >= (ALIGNMENT * 3)) { // split
+            return split(bptr, size);
+        }
     }
     // allocating entire block so fix the free list
     memory_block_t *prev = free_head;
@@ -256,12 +264,15 @@ void *umalloc(size_t size) {
         free_head = free_head->next;
     } else {
         bool done = false;
-        while(prev->next) {
-            if(prev->next == bptr && !done) { // found bptr
-                prev->next = prev->next->next; // bridging free list
-                done = true;
+        while(!done) {
+            if(prev->next) {
+                if(prev->next == bptr) { // found bptr
+                    prev->next = prev->next->next; // bridging free list
+                    done = true;
+                }
+                prev = prev->next;
             }
-            prev = prev->next;
+            
         }
     }
     // after free list is fixed, allocate the block
@@ -278,7 +289,9 @@ void ufree(void *ptr) {
     memory_block_t *bptr = (memory_block_t *) (ptr);
     deallocate(bptr);
     memory_block_t *prev = free_head;
-    if(prev > bptr) { // new free_head
+    if(!free_head) {
+        free_head = ptr;
+    } else if(prev > bptr) { // new free_head
         bptr->next = free_head;
         free_head = bptr;
         coalesce(bptr);
@@ -297,5 +310,4 @@ void ufree(void *ptr) {
         }
         coalesce(bptr);
     }
-
 }
