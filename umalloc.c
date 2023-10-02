@@ -133,7 +133,7 @@ memory_block_t *extend(size_t size) {
     } else if(res < free_head) {
         res->next = free_head;
         free_head = res;
-        return res; // coalesce
+        return coalesce(res); // coalesce
     } else {
         memory_block_t *cur = free_head;
         while(cur->next) {
@@ -141,7 +141,7 @@ memory_block_t *extend(size_t size) {
         }
         cur->next = res;
     }
-    return res; // coalesce
+    return coalesce(res); // coalesce
 }
 
 /*
