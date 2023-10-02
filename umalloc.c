@@ -133,7 +133,7 @@ memory_block_t *extend(size_t size) {
     } else if(res < free_head) {
         res->next = free_head;
         free_head = res;
-        return coalesce(res); //coalesce
+        return res; // coalesce
     } else {
         memory_block_t *cur = free_head;
         while(cur->next) {
@@ -141,7 +141,7 @@ memory_block_t *extend(size_t size) {
         }
         cur->next = res;
     }
-    return coalesce(res); // coalesce
+    return res; // coalesce
 }
 
 /*
@@ -194,12 +194,12 @@ memory_block_t *coalesce(memory_block_t *block) {
     } else {
         while(prev->next) {
             if(prev->next == block) { // found the free block
-                if(block->next && blockEnd == block->next) { // coalesce with next block
+                if(block->next && blockEnd == block->next) { 
                     block->block_size_alloc += block->next->block_size_alloc + ALIGNMENT;
                     block->next = block->next->next;
                 }
                 memory_block_t *prevEnd = (memory_block_t *)((uintptr_t)prev + prev->block_size_alloc + ALIGNMENT);
-                if(prevEnd == block) { // coalesce with prev
+                if(prevEnd == block) { 
                     prev->block_size_alloc += block->block_size_alloc + ALIGNMENT;
                     prev->next = block->next;
                     res = prev;
